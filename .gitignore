@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and cache
+*.log
+.metro-health-check*
+coverage/
+
+# Native files
+.kotlin/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Operating system
+.DS_Store
+
+# Uploaded files
+unifind-backend/uploads/
