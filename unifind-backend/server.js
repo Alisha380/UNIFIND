@@ -1,4 +1,7 @@
-
+const UserRepository = require('./repo-temp/UserRepository');
+const AuthController = require('./controllers/AuthController');
+const createAuthRoutes = require('./routes/authRoutes');
+require('dotenv').config();
 
 const express = require('express');
 const DatabaseConnection = require('./repo-temp/DatabaseConnection');
@@ -25,7 +28,8 @@ const db = DatabaseConnection.getInstance();
 
 // Repository Pattern
 const itemRepository = new ItemRepository(db);
-
+const userRepository = new UserRepository(db);
+const authController = new AuthController(userRepository);
 // Observer Pattern
 const notificationService = new NotificationService();
 
@@ -50,7 +54,7 @@ app.get('/', (req, res) => {
 
 // MVC Routes
 app.use('/items', createItemRoutes(itemController));
-
+app.use('/auth', createAuthRoutes(authController));
 // Start Server
 const PORT = 3000;
 

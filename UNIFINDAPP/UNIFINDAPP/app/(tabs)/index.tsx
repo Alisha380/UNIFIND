@@ -1,4 +1,4 @@
-import { File } from 'expo-file-system';
+﻿import { File } from 'expo-file-system';
 import { getItems, createReport, updateReport, deleteReport } from '../../utils/api';
 import { filterReports } from '../../utils/filterReports';
 import { validateReportForm } from '../../utils/validation';
@@ -54,7 +54,7 @@ const { width, height } = Dimensions.get("window");
 const API_URL = "http://192.168.100.9:3000";
 export default function App() {
       const [form, setForm] = useState<any>({ // FormState ki jagah 'any' likh dein
-        
+
         id: null,
   name: '',
   email: '',
@@ -115,7 +115,7 @@ const pickImage = async () => {
 
 
 
-  
+
 const handleSubmit = async () => {
   // 1. Logic check: Agar id hai toh update (PUT), warna naya (POST)
   const isUpdate = form.id !== null && form.id !== undefined;
@@ -165,6 +165,7 @@ const handleSubmit = async () => {
     const [selectedItem, setSelectedItem] = useState<UniItem | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<'All' | 'Lost' | 'Found'>('All');
+    const [showProfileModal, setShowProfileModal] = useState(false);
 
     const flatListRef = useRef<FlatList>(null);
     const progressWidth = useRef(new Animated.Value(0)).current;
@@ -173,37 +174,123 @@ const handleSubmit = async () => {
     const contentOpacity = useRef(new Animated.Value(0)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
-    // Validation Logic
-    const handleAuth = () => {
+    // Logout confirmation and return to the Welcome Back screen
+    const handleLogout = () => {
+        setShowProfileModal(false);
+        Alert.alert(
+            "Logout",
+            "Are you sure you want to logout?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Logout",
+                    style: "destructive",
+                    onPress: () => {
+                        setSelectedItem(null);
+                        setActiveTab('Home');
+                        setSearchQuery('');
+                        setActiveFilter('All');
+                        setForm({ id: null, name: '', email: '', msg: '', type: 'Found', item_name: '', location: '', image_url: '' });
+                        setErrors({});
+                        setIsLogin(false);
+                        setShowAuthSheet(false);
+                        progressWidth.setValue(0);
+                        sheetTranslateY.setValue(height * 0.7);
+                        sheetScale.setValue(0.9);
+                        contentOpacity.setValue(0);
+                        setStage("intro");
+                    }
+                }
+            ]
+        );
+    };
+
+    // Backend-connected Login and Signup
+    const handleAuth = async () => {
         if (isLogin) {
             if (!email.trim() || !password.trim()) {
                 Alert.alert("Error", "Please fill all fields to Login");
                 return;
             }
         } else {
-            if (!firstName.trim() || !lastName.trim() || !email.trim() || !username.trim() || !password.trim() || !confirmPassword.trim()) {
+            if (
+                !firstName.trim() ||
+                !lastName.trim() ||
+                !email.trim() ||
+                !username.trim() ||
+                !password.trim() ||
+                !confirmPassword.trim()
+            ) {
                 Alert.alert("Error", "All fields are required to Create Account");
                 return;
             }
+
             if (password !== confirmPassword) {
                 Alert.alert("Error", "Passwords do not match");
                 return;
             }
-        }
-        
-        Alert.alert("Success", "Proceeding...");
-        setStage("main");
-    };
 
-    useEffect(() => {
-        const updateTime = () => {
-            const now = new Date();
-            setTime(`${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`);
-        };
-        updateTime();
-        const timer = setInterval(updateTime, 60000);
-        return () => clearInterval(timer);
-    }, []);
+            if (password.length < 8) {
+                Alert.alert("Error", "Password must be at least 8 characters.");
+                return;
+            }
+        }
+
+        try {
+            const endpoint = isLogin ? "/auth/login" : "/auth/signup";
+
+            const body = isLogin
+                ? {
+                    email: email.trim().toLowerCase(),
+                    password
+                }
+                : {
+                    first_name: firstName.trim(),
+                    last_name: lastName.trim(),
+                    email: email.trim().toLowerCase(),
+                    username: username.trim(),
+                    password
+                };
+
+            const response = await fetch(`${API_URL}${endpoint}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                Alert.alert(
+                    "Authentication Failed",
+                    data.message || "Something went wrong."
+                );
+                return;
+            }
+
+            if (data.user) {
+                setFirstName(data.user.first_name || "");
+                setLastName(data.user.last_name || "");
+                setEmail(data.user.email || "");
+                setUsername(data.user.username || "");
+            }
+
+            Alert.alert(
+                "Success",
+                data.message || "Authentication successful!"
+            );
+
+            setStage("main");
+        } catch (error) {
+            console.error("Authentication Error:", error);
+            Alert.alert(
+                "Connection Error",
+                "Unable to connect to server. Please check that the backend is running and your phone and laptop are on the same Wi-Fi."
+            );
+        }
+    };
 
     useEffect(() => {
         if (stage === "logo") setTimeout(() => setStage("slider"), LOGO_DURATION);
@@ -246,10 +333,10 @@ const handleSubmit = async () => {
  const fetchItems = async () => {
             try {
               const data = await getItems(API_URL);
-                
+
                 // Important: Dummy data ki jagah ab hum DB wala data set karenge
-                setDbItems(data); 
-                
+                setDbItems(data);
+
                 setLoading(false);
                 Animated.timing(fadeAnim, {
                     toValue: 1,
@@ -261,8 +348,8 @@ const handleSubmit = async () => {
                 setLoading(false);
             }
         };
-      
-    
+
+
 useEffect(() => {
     if (stage === "main") {
       fetchItems();
@@ -324,8 +411,8 @@ const deleteItem = async (id: number) => {
     // --- SCREEN RENDERERS (Inside App for Scope) ---
     const RenderHome = () => (
         <ScrollView showsVerticalScrollIndicator={false} style={styles.flex1}>
-          <ImageBackground 
-            source={{ uri: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1200' }} 
+          <ImageBackground
+            source={{ uri: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1200' }}
             style={styles.heroSection}
           >
             <View style={styles.heroOverlay}>
@@ -385,7 +472,7 @@ const deleteItem = async (id: number) => {
     );
 
     const RenderAbout = () => (
-        <ScrollView style={styles.padding25}>
+        <ScrollView style={styles.flex1} contentContainerStyle={{ padding: 25, paddingBottom: 150 }} showsVerticalScrollIndicator={false}>
           <Text style={styles.screenHeading}>About UniFind</Text>
           <View style={styles.aboutHero}>
             <Globe size={60} color="#3b82f6" strokeWidth={1.5} />
@@ -420,9 +507,9 @@ const deleteItem = async (id: number) => {
             <Text style={styles.screenHeading}>Discovery</Text>
             <View style={styles.searchBox}>
               <Search color="#94a3b8" size={20} />
-              <TextInput 
-                style={styles.searchField} 
-                placeholder="Search items or locations..." 
+              <TextInput
+                style={styles.searchField}
+                placeholder="Search items or locations..."
                 placeholderTextColor="#64748b"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -430,8 +517,8 @@ const deleteItem = async (id: number) => {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar}>
               {['All', 'Found', 'Lost'].map(f => (
-                <TouchableOpacity 
-                  key={f} 
+                <TouchableOpacity
+                  key={f}
                   onPress={() => setActiveFilter(f as any)}
                   style={[styles.filterChip, activeFilter === f && styles.filterChipActive]}
                 >
@@ -440,36 +527,36 @@ const deleteItem = async (id: number) => {
               ))}
             </ScrollView>
           </View>
-       
-<FlatList 
+
+<FlatList
   data={filteredData}
   keyExtractor={item => item.id.toString()} // Database ID string ya number ho sakti hai
   renderItem={({ item }) => (
     <TouchableOpacity style={styles.discoveryCard} onPress={() => setSelectedItem(item)}>
       {/* Image: DB column 'image_url' use karein */}
       <Image source={{ uri: item.image_url || 'https://via.placeholder.com/150' }} style={styles.discoveryImg} />
-      
+
       <View style={styles.discoveryBody}>
         <View style={styles.rowBetween}>
           <Text style={styles.discCat}>{item.category || "General"}</Text>
-          
+
           {/* Status: DB column 'type' use karein (Found/Lost) */}
           <View style={[styles.statusIndicator, { backgroundColor: item.type === 'Lost' ? '#ef4444' : '#10b981' }]}>
             <Text style={styles.statusText}>{item.type}</Text>
           </View>
          {/* Action Buttons Row */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-            
+
             {/* Edit Button */}
-            <TouchableOpacity 
-              onPress={() => handleEdit(item)} 
+            <TouchableOpacity
+              onPress={() => handleEdit(item)}
               style={{ marginRight: 20 }}
             >
               <Ionicons name="create-outline" size={22} color="#3b82f6" />
             </TouchableOpacity>
 
             {/* Delete Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => deleteItem(item.id)}
             >
               <Ionicons name="trash-outline" size={22} color="#ef4444" />
@@ -480,7 +567,7 @@ const deleteItem = async (id: number) => {
 
         {/* Title: DB column 'item_name' use karein */}
         <Text style={styles.discTitle}>{item.item_name}</Text>
-        
+
         <View style={styles.row}>
           <MapPin size={12} color="#94a3b8" />
           <Text style={styles.discLoc}>{item.location}</Text>
@@ -499,15 +586,17 @@ const deleteItem = async (id: number) => {
         </View>
     );
 
-    
+
     if (stage === "logo") return (
         <View style={styles.container}>
+            <StatusBar hidden />
             <Image source={LOGO_IMG} style={styles.absoluteFill} resizeMode="cover" />
         </View>
     );
 
     if (stage === "slider") return (
         <View style={styles.container}>
+            <StatusBar hidden />
             <FlatList
                 ref={flatListRef}
                 data={slides}
@@ -522,15 +611,7 @@ const deleteItem = async (id: number) => {
 
     if (stage === "intro") return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
-            <SafeAreaView style={styles.iosHeader}>
-                <Text style={styles.timeText}>{time}</Text>
-                <View style={styles.headerIcons}>
-                  <Ionicons name="cellular" size={16} color="white" />
-                  <Ionicons name="wifi" size={16} color="white" />
-                  <Ionicons name="battery-full" size={20} color="white" />
-                </View>
-            </SafeAreaView>
+            <StatusBar hidden />
             <Image source={LOGO_IMG} style={styles.absoluteFill} resizeMode="cover" />
             {!showAuthSheet && (
                 <View style={styles.loadingTrack}>
@@ -568,7 +649,7 @@ const deleteItem = async (id: number) => {
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
                 <BlurView intensity={60} tint="dark" style={styles.card}>
                   <TouchableOpacity onPress={() => setStage("intro")} style={{ marginBottom: 15 }}>
-                      <Text style={{ color: "#fff", fontSize: 14 }}>← Back</Text>
+                      <Text style={{ color: "#fff", fontSize: 14 }}>â† Back</Text>
                   </TouchableOpacity>
                   <Text style={styles.logoText}>Lost n Found</Text>
                   <Text style={styles.titleText}>{isLogin ? "Welcome Back" : "Create Your Account"}</Text>
@@ -611,7 +692,7 @@ const deleteItem = async (id: number) => {
                   <Text style={styles.brandTitle}>UNIFIND</Text>
                   <Text style={styles.brandSub}>RIPHAH UNIVERSITY</Text>
                 </View>
-                <TouchableOpacity style={styles.avatar}>
+                <TouchableOpacity style={styles.avatar} onPress={() => setShowProfileModal(true)} accessibilityRole="button" accessibilityLabel="Open profile">
                   <User size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -620,53 +701,146 @@ const deleteItem = async (id: number) => {
                 {activeTab === 'About' && <RenderAbout />}
                 {activeTab === 'Discovery' && <RenderDiscovery />}
                {activeTab === 'Report' && (
-  <RenderReport 
-    form={form} 
-    setForm={setForm} 
-    errors={errors} 
-    setErrors={setErrors} 
+  <RenderReport
+    form={form}
+    setForm={setForm}
+    errors={errors}
+    setErrors={setErrors}
     setActiveTab={setActiveTab}
-    pickImage={pickImage}           
-    handleSubmit={handleSubmit}     
+    pickImage={pickImage}
+    handleSubmit={handleSubmit}
   />
 )}
               </Animated.View>
-              <Modal visible={!!selectedItem} transparent animationType="slide">
-                  <View style={styles.modalBackdrop}>
-                  <View style={styles.modalSheet}>
-                    <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedItem(null)}>
-                      <X color="#fff" size={24} />
-                    </TouchableOpacity>
-                    <Image source={{ uri: selectedItem?.image }} style={styles.modalImg} />
-                    <View style={styles.modalBody}>
-                      <View style={styles.rowBetween}>
-                          <Text style={styles.modalCat}>{selectedItem?.category}</Text>
-                          <Text style={styles.modalId}>{selectedItem?.id}</Text>
-                      </View>
-                      <Text style={styles.modalTitle}>{selectedItem?.name}</Text>
-                      <View style={styles.modalLocRow}>
-                          <MapPin size={14} color="#3b82f6" />
-                          <Text style={styles.modalLoc}>{selectedItem?.location}</Text>
-                      </View>
-                      <Text style={styles.modalDesc}>{selectedItem?.description}</Text>
-                      <View style={styles.reporterCard}>
-                          <Info size={16} color="#94a3b8" />
-                          <Text style={styles.reporterText}>Reported by: {selectedItem?.reporter}</Text>
-                      </View>
-                      <TouchableOpacity style={styles.modalClaimBtn} onPress={() => Alert.alert("Claim Process Initiated", "Check your student email for verification steps.")}>
-                          <Text style={styles.modalClaimText}>Reclaim This Asset</Text>
+              <Modal
+                visible={showProfileModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowProfileModal(false)}
+              >
+                <View style={{ flex: 1, backgroundColor: 'rgba(2, 6, 23, 0.72)', justifyContent: 'center', padding: 24 }}>
+                  <View style={{ backgroundColor: '#0f172a', borderRadius: 24, padding: 22, borderWidth: 1, borderColor: '#334155' }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
+                      <Text style={{ color: '#fff', fontSize: 21, fontWeight: '700' }}>My Profile</Text>
+                      <TouchableOpacity onPress={() => setShowProfileModal(false)} accessibilityRole="button" accessibilityLabel="Close profile">
+                        <X color="#cbd5e1" size={23} />
                       </TouchableOpacity>
                     </View>
+
+                    <View style={{ alignItems: 'center', paddingVertical: 8, marginBottom: 20 }}>
+                      <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: '#1e3a8a', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                        <User color="#bfdbfe" size={36} />
+                      </View>
+                      <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>
+                        {[firstName, lastName].filter(Boolean).join(' ') || username || 'UniFind User'}
+                      </Text>
+                      <Text style={{ color: '#94a3b8', fontSize: 13, marginTop: 5 }}>
+                        {email || 'Email not provided'}
+                      </Text>
+                    </View>
+
+                    <View style={{ backgroundColor: '#1e293b', borderRadius: 14, padding: 15, marginBottom: 18 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <ShieldCheck color="#34d399" size={19} />
+                        <Text style={{ color: '#e2e8f0', fontSize: 14, marginLeft: 10 }}>UniFind account</Text>
+                        <View style={{ flex: 1 }} />
+                        <Text style={{ color: '#34d399', fontSize: 12, fontWeight: '600' }}>Active session</Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={handleLogout}
+                      accessibilityRole="button"
+                      accessibilityLabel="Logout"
+                      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#7f1d1d', borderRadius: 14, paddingVertical: 15, marginTop: 2 }}
+                    >
+                      <Ionicons name="log-out-outline" size={20} color="#fff" />
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', marginLeft: 9 }}>Logout</Text>
+                    </TouchableOpacity>
                   </View>
-                  </View>
+                </View>
               </Modal>
+
+<Modal visible={!!selectedItem} transparent animationType="slide">
+  <View style={styles.modalBackdrop}>
+    <View style={styles.modalSheet}>
+      <TouchableOpacity
+        style={styles.modalClose}
+        onPress={() => setSelectedItem(null)}
+      >
+        <X color="#fff" size={24} />
+      </TouchableOpacity>
+
+      <Image
+        source={{
+          uri:
+            (selectedItem as any)?.image_url ||
+            (selectedItem as any)?.image
+        }}
+        style={styles.modalImg}
+      />
+
+      <View style={styles.modalBody}>
+        <View style={styles.rowBetween}>
+          <Text style={styles.modalCat}>
+            {selectedItem?.category}
+          </Text>
+          <Text style={styles.modalId}>
+            {selectedItem?.id}
+          </Text>
+        </View>
+
+        <Text style={styles.modalTitle}>
+          {(selectedItem as any)?.item_name || selectedItem?.name}
+        </Text>
+
+        <View style={styles.modalLocRow}>
+          <MapPin size={14} color="#3b82f6" />
+          <Text style={styles.modalLoc}>
+            {selectedItem?.location}
+          </Text>
+        </View>
+
+        <Text style={styles.modalDesc}>
+          {(selectedItem as any)?.msg ||
+            (selectedItem as any)?.description ||
+            'No description provided.'}
+        </Text>
+
+        <View style={styles.reporterCard}>
+          <Info size={16} color="#94a3b8" />
+          <Text style={styles.reporterText}>
+            Reported by: {(selectedItem as any)?.name ||
+              (selectedItem as any)?.reporter ||
+              'Unknown'}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.modalClaimBtn}
+          onPress={() =>
+            Alert.alert(
+              "Claim Process Initiated",
+              "Check your student email for verification steps."
+            )
+          }
+        >
+          <Text style={styles.modalClaimText}>
+            Reclaim This Asset
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
+
               <View style={styles.bottomNav}>
                 <NavButton icon={<Layers />} label="Hub" active={activeTab === 'Home'} onPress={() => setActiveTab('Home')} />
                 <NavButton icon={<Compass />} label="Explore" active={activeTab === 'Discovery'} onPress={() => setActiveTab('Discovery')} />
-                <NavButton 
-  icon={<Plus />} 
-  label="Report" 
-  active={activeTab === 'Report'} 
+                <NavButton
+  icon={<Plus />}
+  label="Report"
+  active={activeTab === 'Report'}
   onPress={() => {
     setActiveTab('Report');
     // Naya report shuru karne ke liye form ko reset karna zaroori hai
@@ -681,7 +855,7 @@ const deleteItem = async (id: number) => {
       image_url: '',
     });
     setErrors({});
-  }} 
+  }}
 />
                 <NavButton icon={<Info />} label="About" active={activeTab === 'About'} onPress={() => setActiveTab('About')} />
               </View>
@@ -713,22 +887,22 @@ const RenderReport = ({ form, setForm, errors, setErrors, handleSubmit, pickImag
   setErrors(tempErrors);
   return Object.keys(tempErrors).length === 0;
 };
-       
+
 
         return (
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.flex1}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
           >
-            <ScrollView 
+            <ScrollView
               style={styles.flex1}
-              contentContainerStyle={{ padding: 25, paddingBottom: 150 }} 
+              contentContainerStyle={{ padding: 25, paddingBottom: 150 }}
               showsVerticalScrollIndicator={false}
             >
               <Text style={styles.screenHeading}>Incident Report</Text>
               <Text style={styles.subText}>Create a formal record for a lost or found item.</Text>
-              
+
               <View style={styles.formContainer}>
                 <View style={styles.toggleRow}>
                   <TouchableOpacity style={[styles.toggleBtn, form.type === 'Found' && styles.toggleActive]} onPress={() => setForm({...form, type: 'Found'})}>
@@ -738,13 +912,13 @@ const RenderReport = ({ form, setForm, errors, setErrors, handleSubmit, pickImag
                     <Text style={[styles.toggleText, form.type === 'Lost' && styles.toggleTextActive]}>Lost Item</Text>
                   </TouchableOpacity>
                 </View>
-                
+
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>FULL NAME</Text>
                   <TextInput style={[styles.inputField, errors.name && styles.inputError]} placeholder="Student / Staff Name" placeholderTextColor="#475569" value={form.name} onChangeText={t => setForm({...form, name: t})} />
                   {errors.name && <Text style={styles.errorLabel}>{errors.name}</Text>}
                 </View>
-                
+
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
                   <TextInput style={[styles.inputField, errors.email && styles.inputError]} placeholder="name@university.edu" placeholderTextColor="#475569" autoCapitalize="none" keyboardType="email-address" value={form.email} onChangeText={t => setForm({...form, email: t})} />
@@ -755,35 +929,35 @@ const RenderReport = ({ form, setForm, errors, setErrors, handleSubmit, pickImag
 {/* ITEM NAME Input */}
 <View style={styles.inputGroup}>
   <Text style={styles.inputLabel}>ITEM NAME</Text>
-  <TextInput 
-    style={styles.inputField} 
-    placeholder="e.g. MacBook Pro, Wallet" 
+  <TextInput
+    style={styles.inputField}
+    placeholder="e.g. MacBook Pro, Wallet"
     placeholderTextColor="#475569"
     value={form.item_name}
-    onChangeText={t => setForm({...form, item_name: t})} 
+    onChangeText={t => setForm({...form, item_name: t})}
   />
 </View>
 
 {/* LOCATION Input */}
 <View style={styles.inputGroup}>
   <Text style={styles.inputLabel}>LOCATION</Text>
-  <TextInput 
-    style={styles.inputField} 
-    placeholder="e.g. Library, Block B" 
+  <TextInput
+    style={styles.inputField}
+    placeholder="e.g. Library, Block B"
     placeholderTextColor="#475569"
     value={form.location}
-    onChangeText={t => setForm({...form, location: t})} 
+    onChangeText={t => setForm({...form, location: t})}
   />
 </View>
 
 {/* IMAGE PICKER BUTTON */}
-<TouchableOpacity 
-  style={[styles.btnSubmit, { backgroundColor: '#1e293b', marginBottom: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 }]} 
+<TouchableOpacity
+  style={[styles.btnSubmit, { backgroundColor: '#1e293b', marginBottom: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 }]}
   onPress={pickImage}
 >
   <Ionicons name="camera" size={20} color="#fff" />
   <Text style={[styles.btnSubmitText, { color: '#fff' }]}>
-    {form.image_url ? "IMAGE SELECTED ✅" : "UPLOAD IMAGE"}
+    {form.image_url ? "IMAGE SELECTED âœ…" : "UPLOAD IMAGE"}
   </Text>
 </TouchableOpacity>
 
@@ -793,7 +967,7 @@ const RenderReport = ({ form, setForm, errors, setErrors, handleSubmit, pickImag
                   <TextInput style={[styles.inputField, styles.textArea, errors.msg && styles.inputError]} placeholder="Color, brand, unique markings..." placeholderTextColor="#475569" multiline numberOfLines={4} value={form.msg} onChangeText={t => setForm({...form, msg: t})} />
                   {errors.msg && <Text style={styles.errorLabel}>{errors.msg}</Text>}
                 </View>
-                
+
                 <TouchableOpacity style={styles.btnSubmit} onPress={handleSubmit}>
                   <Text style={styles.btnSubmitText}>INITIALIZE REPORT</Text>
                   <Send size={18} color="#000" />
